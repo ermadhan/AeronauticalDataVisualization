@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AeroOps - Global Aeronautical Data Visualization</title>
+  <meta name="description" content="Interactive geospatial visualization and avionics telemetry dashboard for 86,000+ world airports, runways, frequencies, and navaids.">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Local Vendor Stylesheets (100% Offline, No Licensing Required) -->
+  <link rel="stylesheet" href="vendor/leaflet.css">
+  <link rel="stylesheet" href="vendor/MarkerCluster.css">
+  <link rel="stylesheet" href="vendor/MarkerCluster.Default.css">
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+  <!-- Top Tactical Telemetry Header -->
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="radar-logo" title="Radar Pulse Active">
+        <div class="radar-sweep"></div>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
+          <path d="M2 12h20"></path>
+        </svg>
+      </div>
+      <div>
+        <h1 class="brand-title">AERO<span class="highlight">OPS</span></h1>
+      </div>
+      <span class="brand-badge">ICAO / WAC</span>
+    </div>
+
+    <!-- Live Telemetry Stat Pills -->
+    <div class="stats-ticker" id="stats-ticker">
+      <div class="stat-pill">
+        <span class="label">Airports</span>
+        <span class="value cyan" id="stat-airports">--</span>
+      </div>
+      <div class="stat-pill">
+        <span class="label">Runways</span>
+        <span class="value amber" id="stat-runways">--</span>
+      </div>
+      <div class="stat-pill">
+        <span class="label">Navaids</span>
+        <span class="value purple" id="stat-navaids">--</span>
+      </div>
+      <div class="stat-pill">
+        <span class="label">Frequencies</span>
+        <span class="value green" id="stat-frequencies">--</span>
+      </div>
+      <div class="stat-pill">
+        <span class="label">Nations</span>
+        <span class="value" id="stat-countries">--</span>
+      </div>
+    </div>
+
+    <!-- Actions, Search & View Modes -->
+    <div class="header-actions">
+      <!-- Search Input with Dropdown -->
+      <div class="search-box">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="global-search" placeholder="Search ICAO, IATA, or Name (e.g. KLAX, LHR)..." autocomplete="off">
+        <div class="search-results-dropdown" id="search-results"></div>
+      </div>
+
+      <!-- Navigation Tabs -->
+      <div class="view-tabs">
+        <button class="tab-btn active" data-view="map-view">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
+            <line x1="8" y1="2" x2="8" y2="18"></line>
+            <line x1="16" y1="6" x2="16" y2="22"></line>
+          </svg>
+          Tactical Map
+        </button>
+        <button class="tab-btn" data-view="analytics-view">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+          Analytics
+        </button>
+        <button class="tab-btn" data-view="table-view">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="3" y1="9" x2="21" y2="9"></line>
+            <line x1="3" y1="15" x2="21" y2="15"></line>
+            <line x1="9" y1="3" x2="9" y2="21"></line>
+          </svg>
+          Registry
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Application Main Container -->
+  <main class="app-main">
+    
+    <!-- 1. Tactical Map View -->
+    <section class="view-container active" id="map-view">
+      <div id="map"></div>
+
+      <!-- Floating Controls on Map -->
+      <div class="map-toolbar">
+        <!-- Layer Filter Chips -->
+        <div class="filter-glass-card">
+          <span class="filter-label">Layers:</span>
+          <div class="filter-chip active" data-type="large_airport">
+            <span class="chip-dot"></span> Hubs / Major
+          </div>
+          <div class="filter-chip active" data-type="medium_airport">
+            <span class="chip-dot"></span> Regional
+          </div>
+          <div class="filter-chip" data-type="small_airport">
+            <span class="chip-dot"></span> General Aviation
+          </div>
+          <div class="filter-chip" data-type="heliport">
+            <span class="chip-dot"></span> Heliports
+          </div>
+          <div class="filter-chip active" data-type="navaids">
+            <span class="chip-dot"></span> Navaids (VOR/NDB)
+          </div>
+        </div>
+
+        <!-- Map Basemap Selector (100% Free & No API Key Required) -->
+        <div class="quick-jump-panel" id="basemap-selector">
+          <span class="filter-label" style="line-height:22px;">Basemap:</span>
+          <button class="jump-btn map-style-btn active" data-style="vector" title="100% Offline Local Vector Landmasses (Zero Network, Zero API Key)">🛰️ Tactical Vector (Offline)</button>
+          <button class="jump-btn map-style-btn" data-style="osm" title="Open Community OpenStreetMap Tiles (Free Open Data, No API Key)">🗺️ OpenStreetMap</button>
+        </div>
+
+        <!-- Quick Jump Presets -->
+        <div class="quick-jump-panel">
+          <span class="filter-label" style="line-height:22px;">Quick Fly:</span>
+          <button class="jump-btn" data-lat="51.4700" data-lon="-0.4543" data-ident="EGLL">EGLL (London)</button>
+          <button class="jump-btn" data-lat="40.6413" data-lon="-73.7781" data-ident="KJFK">KJFK (New York)</button>
+          <button class="jump-btn" data-lat="33.9425" data-lon="-118.4081" data-ident="KLAX">KLAX (Los Angeles)</button>
+          <button class="jump-btn" data-lat="35.5494" data-lon="139.7798" data-ident="RJTT">RJTT (Tokyo)</button>
+          <button class="jump-btn" data-lat="25.2532" data-lon="55.3657" data-ident="OMDB">OMDB (Dubai)</button>
+          <button class="jump-btn" data-lat="49.0097" data-lon="2.5479" data-ident="LFPG">LFPG (Paris)</button>
+        </div>
+
+        <!-- Live Viewport Status -->
+        <div class="map-status-pill">
+          <span class="pulse-led"></span>
+          <span id="map-status-text">RADAR SCANNING VIEWPORT...</span>
+        </div>
+      </div>
+
+      <!-- Airport Inspector Cockpit Drawer -->
+      <aside class="cockpit-drawer" id="cockpit-drawer">
+        <div class="drawer-header">
+          <div>
+            <div class="airport-badges">
+              <span class="badge-ident" id="drawer-ident">----</span>
+              <span class="badge-iata" id="drawer-iata">---</span>
+              <span class="badge-type" id="drawer-type">AIRPORT</span>
+            </div>
+            <h2 class="drawer-title" id="drawer-name">Select an aerodrome on the map</h2>
+            <div class="drawer-subtitle" id="drawer-location">Location Telemetry</div>
+          </div>
+          <button class="drawer-close-btn" id="drawer-close-btn" title="Close Drawer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+
+        <div class="drawer-content" id="drawer-content">
+          <!-- Telemetry Specs -->
+          <div class="telemetry-grid">
+            <div class="telemetry-card">
+              <div class="card-label">Elevation (MSL)</div>
+              <div class="card-value" id="card-elevation">-- ft</div>
+            </div>
+            <div class="telemetry-card">
+              <div class="card-label">Scheduled Service</div>
+              <div class="card-value" id="card-service">--</div>
+            </div>
+            <div class="telemetry-card">
+              <div class="card-label">Latitude</div>
+              <div class="card-value" id="card-lat">--</div>
+            </div>
+            <div class="telemetry-card">
+              <div class="card-label">Longitude</div>
+              <div class="card-value" id="card-lon">--</div>
+            </div>
+          </div>
+
+          <!-- Runway Orientation Compass -->
+          <div class="cockpit-section">
+            <div class="section-heading">
+              <span>Runway Geometry & Headings</span>
+              <span id="runway-count-badge" class="brand-badge">0 RUNWAYS</span>
+            </div>
+            <div class="compass-box">
+              <svg id="runway-compass" class="runway-compass-svg" viewBox="0 0 220 220"></svg>
+            </div>
+            <div class="runway-list" id="runway-list">
+              <!-- Dynamically populated runway cards -->
+            </div>
+          </div>
+
+          <!-- Radio Stack Frequencies -->
+          <div class="cockpit-section">
+            <div class="section-heading">
+              <span>Avionics Radio Frequencies</span>
+              <span class="brand-badge">VHF MHz</span>
+            </div>
+            <div class="radio-stack" id="radio-stack">
+              <!-- Dynamically populated frequency rows -->
+            </div>
+          </div>
+
+          <!-- Nearby Navaids -->
+          <div class="cockpit-section">
+            <div class="section-heading">
+              <span>Nearby Navigational Aids</span>
+              <span class="brand-badge">&lt; 50 NM</span>
+            </div>
+            <div id="nearby-navaids-list">
+              <!-- Dynamically populated navaids -->
+            </div>
+          </div>
+
+          <!-- Pilot Comments / Debrief -->
+          <div class="cockpit-section">
+            <div class="section-heading">
+              <span>Pilot Debriefs & Notes</span>
+            </div>
+            <div id="comments-list">
+              <!-- Dynamically populated comments -->
+            </div>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <!-- 2. Global Analytics View -->
+    <section class="view-container" id="analytics-view">
+      <div class="analytics-header">
+        <div>
+          <h2 class="analytics-title">Global Aeronautical Analytics</h2>
+          <p class="drawer-subtitle">Aggregated distribution analysis across 86,258 facilities and 48,345 runways</p>
+        </div>
+      </div>
+
+      <div class="analytics-grid">
+        <!-- Chart 1: Runway Length Distribution -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <h3 class="chart-title">Runway Length Classification</h3>
+            <span class="brand-badge">Length (FT)</span>
+          </div>
+          <div class="chart-canvas-wrapper">
+            <canvas id="chart-runways"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Runway Surfaces -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <h3 class="chart-title">Runway Surface Materials</h3>
+            <span class="brand-badge">Composition</span>
+          </div>
+          <div class="chart-canvas-wrapper">
+            <canvas id="chart-surfaces"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 3: Top Nations by Airports -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <h3 class="chart-title">Top 10 Aviation Infrastructure Nations</h3>
+            <span class="brand-badge">Total Facilities</span>
+          </div>
+          <div class="chart-canvas-wrapper">
+            <canvas id="chart-countries"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 4: Continents Breakdown -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <h3 class="chart-title">Continental Distribution</h3>
+            <span class="brand-badge">Global Share</span>
+          </div>
+          <div class="chart-canvas-wrapper">
+            <canvas id="chart-continents"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Aerodrome Registry Table View -->
+    <section class="view-container" id="table-view">
+      <div class="table-toolbar">
+        <div>
+          <h2 class="analytics-title">Aerodrome Registry</h2>
+          <p class="drawer-subtitle">Instant queryable database of world facilities</p>
+        </div>
+        <div class="search-box table-search">
+          <input type="text" id="registry-search" placeholder="Filter registry by code, name, country...">
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-scroll">
+          <table class="aero-table" id="aero-table">
+            <thead>
+              <tr>
+                <th>Ident / ICAO</th>
+                <th>IATA</th>
+                <th>Facility Name</th>
+                <th>Type</th>
+                <th>Country</th>
+                <th>Municipality</th>
+                <th>Elevation</th>
+                <th>Coordinates</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="registry-tbody">
+              <!-- Populated via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Local Vendor Libraries (100% Offline, No Licensing Required) -->
+  <script src="vendor/leaflet.js"></script>
+  <script src="vendor/leaflet.markercluster.js"></script>
+  <script src="vendor/chart.min.js"></script>
+
+  <!-- Application Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
